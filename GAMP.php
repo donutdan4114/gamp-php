@@ -40,21 +40,24 @@ class GAMP {
    */
   public function __construct(array $args = array()) {
 
-    // Sets default args to stop unwanted PHP notices.
-    $defaults = array(
-      'tracking_id' => '',
-      'client_id' => '',
-      'http_method' => 'POST',
-      'use_cache_buster' => 0,
-      'anonymize_ip' => 0,
-    );
-    $this->setDefaults($args, $defaults);
+    // Tracking ID is always required.
+    $this->checkRequired($args, array('tracking_id'));
 
     if (!$this->validTrackingID($args['tracking_id'])) {
       throw new GAMP_Exception("Tracking ID is not in the correct format.");
     }
 
     $this->tracking_id = $args['tracking_id'];
+
+    // Sets default args to stop unwanted PHP notices.
+    $defaults = array(
+      'client_id' => '',
+      'http_method' => 'POST',
+      'use_cache_buster' => 0,
+      'anonymize_ip' => 0,
+    );
+    $this->setDefaults($args, $defaults);
+    
     $this->client_id = $this->getValidClientID($args['client_id']);
 
     // Ensure that the given HTTP method is one that we're prepared to handle.
@@ -69,6 +72,30 @@ class GAMP {
     if ($args['anonymize_ip']) {
       $this->request_parameters[self::PARAM_ANON_IP] = 1;
     }
+  }
+
+  /**
+   * Ensures that certain parameters are required.
+   * 
+   * @param array $args
+   *   Array of arguments to check.
+   * 
+   * @param array $required_params
+   *   An array of required params to check. If a parameter is empty, exception is thrown.
+   * 
+   * @return boolean
+   *   Returns TRUE if all required params are present.
+   *
+   * @throws GAMP_Exception
+   *   If a required param is missing, exception is thrown.
+   */
+  protected function checkRequired(array $args, array $required_params) {
+    foreach($required_params as $field) {
+      if(!isset($args[$field]) || $args[$field] === FALSE) {
+        throw new GAMP_Exception("Missing required param: {$field}.");
+      }
+    }
+    return TRUE;
   }
 
   /**
@@ -261,6 +288,7 @@ class GAMP {
    * @return string
    */
   public function sendEvent(array $args) {
+    $this->checkRequired($args, array('category', 'action'));
     $required_vars = array(
       self::PARAM_HIT_TYPE => 'event',
       self::PARAM_EVENT_CATEGORY => $args['category'],
@@ -311,6 +339,7 @@ class GAMP {
    */
   public function sendTransaction(array $args) {
     // @todo: validate param lengths (e.g. 500-byte limit), type, etc.
+    $this->checkRequired($args, array('transaction_id'));
     $required_vars = array(
       self::PARAM_TRANS_AFFILIATION => 'transaction',
       self::PARAM_TRANS_ID => $args['transaction_id'],
@@ -334,6 +363,7 @@ class GAMP {
    * @return string
    */
   public function sendItem(array $args) {
+    $this->checkRequired($args, array('transaction_id', 'item_name'));
     $required_vars = array(
       self::PARAM_HIT_TYPE => 'item',
       self::PARAM_TRANS_ID => $args['transaction_id'],
@@ -358,7 +388,7 @@ class GAMP {
    * @return string
    */
   public function sendSocialAction(array $args) {
-    // @todo: validate param lengths (e.g. 50-byte limit), type, etc.
+    $this->checkRequired($args, array('social_network', 'action', 'target'));
     $required_vars = array(
       self::PARAM_HIT_TYPE => 'social',
       self::PARAM_SOCIAL_NETWORK => $args['social_network'],
@@ -577,7 +607,7 @@ class GAMP_Exception extends Exception {
   }
 
   public function __toString() {
-    return __CLASS__ . ": [{$this->code}]: {$this->message}\n";
+    return __CLASS__ . ": {$this->message}\n";
   }
 
 }
